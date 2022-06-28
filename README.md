@@ -1,4 +1,7 @@
-This is the source code of the Stream Deck OBS plugin for Windows and macOS.
+
+# Stream Deck - OBS Studio Plugin 2.0
+
+This is the source code of the Stream Deck OBS Studio plugin for Windows and macOS.
 
 # Building
 ## Windows
