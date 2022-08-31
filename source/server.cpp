@@ -1,4 +1,4 @@
-// Copyright (C) 2020 - 2021 Corsair GmbH
+// Copyright (C) 2022, Corsair Memory Inc. All rights reserved.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,9 +20,10 @@
 #include <mutex>
 #include "json-rpc.hpp"
 #include "module.hpp"
+#include "obs-frontend-api.h"
 
 
-#define WEBSOCKET_PORT 28186
+const unsigned short WEBSOCKET_PORTS[] = {28186, 39726, 34247, 42206, 38535, 40829, 40624, 0};
 #define WEBSOCKET_PROTOCOL "streamdeck-obs"
 
 /* clang-format off */
@@ -124,8 +125,11 @@ void streamdeck::server::run()
 {
 	// Build the appropriate endpoint.
 	asio::ip::tcp::endpoint ep;
+	unsigned short          portIdx    = 0;
+	unsigned short          listenPort = WEBSOCKET_PORTS[portIdx];
+
 	ep.address(asio::ip::address_v4::loopback());
-	ep.port(WEBSOCKET_PORT);
+	ep.port(listenPort);
 	std::string address = ep.address().to_string();
 
 	// Try to listen for new connections for 30 seconds.
@@ -141,6 +145,12 @@ void streamdeck::server::run()
 				DLOG(LOG_WARNING, "Attempt %" PRIu64 " at listening on '%s:%" PRIu16 "' failed with exception: %s",
 					 attempts, address.c_str(), uint16_t(ep.port()), ex.what());
 			}
+			listenPort = WEBSOCKET_PORTS[portIdx++];
+			if (listenPort == 0) {
+				portIdx    = 0;
+				listenPort = WEBSOCKET_PORTS[portIdx];
+			}
+			ep.port(listenPort);
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
@@ -361,6 +371,9 @@ std::string streamdeck::server::remote_version_string() const
 			}
 			loops++;
 		}
+	}
+	if (result == REMOTE_NOT_CONNECTED) {
+		result = get_translated_text("SDNotConnected");
 	}
 	if (other_result_count > 0) {
 		result += " (+" + std::to_string(other_result_count) + ")";

@@ -1,5 +1,5 @@
-// Copyright (C) 2017 - 2021 Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
-// Copyright (C) 2020 - 2021 Corsair GmbH
+// Copyright (C) 2017, Michael Fabian 'Xaymar' Dirks <info@xaymar.com>. All rights reserved.
+// Copyright (C) 2022, Corsair Memory Inc. All rights reserved.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,8 +31,6 @@
 // Bitness
 #define D_PLATFORM_BITS @D_PLATFORM_BITS@
 #define D_PLATFORM_BITS_PTR @D_PLATFORM_BITS_PTR@
-#if D_PLATFORM_BITS == 32
-#define D_PLATFORM_32BIT
-#else
+
+// Stream Deck plugin will only be built for 64 bit machines
 #define D_PLATFORM_64BIT
-#endif
