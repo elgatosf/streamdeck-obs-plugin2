@@ -6,8 +6,8 @@ cmake_minimum_required(VERSION 3.8...4.0)
 ################################################################################
 
 set(VERSION_MAJOR 5)
-set(VERSION_MINOR 3)
-set(VERSION_PATCH 2)
+set(VERSION_MINOR 4)
+set(VERSION_PATCH 0)
 set(VERSION_TWEAK 0)
 set(VERSION_SUFFIX "")
 set(VERSION_COMMIT "00000000")

@@ -35,8 +35,10 @@ namespace streamdeck {
 			static void on_rename(void* ptr, calldata_t* calldata);
 
 			static void on_enable(void* ptr, calldata_t* calldata);
-			static void on_activate_deactivate(void* ptr, calldata_t* calldata);
-			static void on_show_hide(void* ptr, calldata_t* calldata);
+			static void on_activate(void* ptr, calldata_t* calldata);
+			static void on_deactivate(void* ptr, calldata_t* calldata);
+			static void on_show(void* ptr, calldata_t* calldata);
+			static void on_hide(void* ptr, calldata_t* calldata);
 
 			static void on_mute(void* ptr, calldata_t* calldata);
 			static void on_volume(void* ptr, calldata_t* calldata);

@@ -20,6 +20,7 @@
 #include "server.hpp"
 
 #include <callback/signal.h>
+#include <media-io/audio-math.h>
 #include <obs.h>
 
 /* clang-format off */
@@ -461,10 +462,10 @@ static void listen_source_signals(obs_source_t* source, void* ptr)
 	signal_handler_connect(osh, "destroy", &streamdeck::handlers::obs_source::on_destroy, ptr);
 
 	signal_handler_connect(osh, "enable", &streamdeck::handlers::obs_source::on_enable, ptr);
-	signal_handler_connect(osh, "activate", &streamdeck::handlers::obs_source::on_activate_deactivate, ptr);
-	signal_handler_connect(osh, "deactivate", &streamdeck::handlers::obs_source::on_activate_deactivate, ptr);
-	signal_handler_connect(osh, "show", &streamdeck::handlers::obs_source::on_show_hide, ptr);
-	signal_handler_connect(osh, "hide", &streamdeck::handlers::obs_source::on_show_hide, ptr);
+	signal_handler_connect(osh, "activate", &streamdeck::handlers::obs_source::on_activate, ptr);
+	signal_handler_connect(osh, "deactivate", &streamdeck::handlers::obs_source::on_deactivate, ptr);
+	signal_handler_connect(osh, "show", &streamdeck::handlers::obs_source::on_show, ptr);
+	signal_handler_connect(osh, "hide", &streamdeck::handlers::obs_source::on_hide, ptr);
 
 	// Audio
 	signal_handler_connect(osh, "mute", &streamdeck::handlers::obs_source::on_mute, ptr);
@@ -493,10 +494,10 @@ static void silence_source_signals(obs_source_t* source, void* ptr)
 	signal_handler_disconnect(osh, "destroy", &streamdeck::handlers::obs_source::on_destroy, ptr);
 
 	signal_handler_disconnect(osh, "enable", &streamdeck::handlers::obs_source::on_enable, ptr);
-	signal_handler_disconnect(osh, "activate", &streamdeck::handlers::obs_source::on_activate_deactivate, ptr);
-	signal_handler_disconnect(osh, "deactivate", &streamdeck::handlers::obs_source::on_activate_deactivate, ptr);
-	signal_handler_disconnect(osh, "show", &streamdeck::handlers::obs_source::on_show_hide, ptr);
-	signal_handler_disconnect(osh, "hide", &streamdeck::handlers::obs_source::on_show_hide, ptr);
+	signal_handler_disconnect(osh, "activate", &streamdeck::handlers::obs_source::on_deactivate, ptr);
+	signal_handler_disconnect(osh, "deactivate", &streamdeck::handlers::obs_source::on_deactivate, ptr);
+	signal_handler_disconnect(osh, "show", &streamdeck::handlers::obs_source::on_hide, ptr);
+	signal_handler_disconnect(osh, "hide", &streamdeck::handlers::obs_source::on_hide, ptr);
 
 	// Audio
 	signal_handler_disconnect(osh, "mute", &streamdeck::handlers::obs_source::on_mute, ptr);
@@ -515,6 +516,16 @@ static void silence_source_signals(obs_source_t* source, void* ptr)
 	signal_handler_disconnect(osh, "media_previous", &streamdeck::handlers::obs_source::on_media_previous, ptr);
 	signal_handler_disconnect(osh, "media_started", &streamdeck::handlers::obs_source::on_media_started, ptr);
 	signal_handler_disconnect(osh, "media_ended", &streamdeck::handlers::obs_source::on_media_ended, ptr);
+}
+
+float value_to_dbfs(float v)
+{
+	return mul_to_db(v);
+}
+
+float dbfs_to_value(float v)
+{
+	return db_to_mul(v);
 }
 
 std::shared_ptr<streamdeck::handlers::obs_source> streamdeck::handlers::obs_source::instance()
@@ -638,8 +649,6 @@ void streamdeck::handlers::obs_source::on_rename(void*, calldata_t* calldata)
 
 void streamdeck::handlers::obs_source::on_enable(void*, calldata_t* calldata)
 {
-	// Handles "activate" and "deactivate" as one event.
-
 	// Retrieve information.
 	obs_source_t* source;
 	if (!calldata_get_ptr(calldata, "source", &source)) {
@@ -649,27 +658,16 @@ void streamdeck::handlers::obs_source::on_enable(void*, calldata_t* calldata)
 		return;
 	}
 
-	{ // Deprecated: obs.source.event.enable
-		nlohmann::json reply = nlohmann::json::object();
-		reply["source"]      = build_source_reference(source);
-		reply["enabled"]     = obs_source_enabled(source);
-
-		streamdeck::server::instance()->notify("obs.source.event.enable", reply);
-	}
-
 	{ // obs.source.event.state
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
 		reply["state"]       = build_source_metadata(source);
-
 		streamdeck::server::instance()->notify("obs.source.event.state", reply);
 	}
 }
 
-void streamdeck::handlers::obs_source::on_activate_deactivate(void*, calldata_t* calldata)
+void streamdeck::handlers::obs_source::on_activate(void*, calldata_t* calldata)
 {
-	// Handles "activate" and "deactivate" as one event.
-
 	// Retrieve information.
 	obs_source_t* source;
 	if (!calldata_get_ptr(calldata, "source", &source)) {
@@ -681,27 +679,39 @@ void streamdeck::handlers::obs_source::on_activate_deactivate(void*, calldata_t*
 		return;
 	}
 
-	{ // Deprecated: obs.source.event.activate
+	{ // obs.source.event.state
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
-		reply["active"]      = obs_source_active(source);
+		reply["state"]       = build_source_metadata(source);
+		reply["state"]["active"] = true;
+		streamdeck::server::instance()->notify("obs.source.event.state", reply);
+	}
+}
 
-		streamdeck::server::instance()->notify("obs.source.event.activate", reply);
+void streamdeck::handlers::obs_source::on_deactivate(void*, calldata_t* calldata)
+{
+	// Retrieve information.
+	obs_source_t* source;
+	if (!calldata_get_ptr(calldata, "source", &source)) {
+		DLOG(LOG_WARNING,
+			 "Failed to retrieve 'source' entry from call data in 'activate'/'deactivate' signal. This is a "
+			 "bug in "
+			 "OBS "
+			 "Studio.");
+		return;
 	}
 
 	{ // obs.source.event.state
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
 		reply["state"]       = build_source_metadata(source);
-
+		reply["state"]["active"] = false;
 		streamdeck::server::instance()->notify("obs.source.event.state", reply);
 	}
 }
 
-void streamdeck::handlers::obs_source::on_show_hide(void*, calldata_t* calldata)
+void streamdeck::handlers::obs_source::on_show(void*, calldata_t* calldata)
 {
-	// Handles "show" and "hide" as one event.
-
 	// Retrieve information.
 	obs_source_t* source;
 	if (!calldata_get_ptr(calldata, "source", &source)) {
@@ -711,19 +721,31 @@ void streamdeck::handlers::obs_source::on_show_hide(void*, calldata_t* calldata)
 		return;
 	}
 
-	{ // Deprecated: obs.source.event.show
-		nlohmann::json reply = nlohmann::json::object();
-		reply["source"]      = build_source_reference(source);
-		reply["visible"]     = obs_source_showing(source);
-
-		streamdeck::server::instance()->notify("obs.source.event.show", reply);
-	}
-
 	{ // obs.source.event.state
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
 		reply["state"]       = build_source_metadata(source);
+		reply["state"]["visible"] = true;
+		streamdeck::server::instance()->notify("obs.source.event.state", reply);
+	}
+}
 
+void streamdeck::handlers::obs_source::on_hide(void*, calldata_t* calldata)
+{
+	// Retrieve information.
+	obs_source_t* source;
+	if (!calldata_get_ptr(calldata, "source", &source)) {
+		DLOG(LOG_WARNING,
+			 "Failed to retrieve 'source' entry from call data in 'show'/'hide' signal. This is a bug in OBS "
+			 "Studio.");
+		return;
+	}
+
+	{ // obs.source.event.state
+		nlohmann::json reply = nlohmann::json::object();
+		reply["source"]           = build_source_reference(source);
+		reply["state"]            = build_source_metadata(source);
+		reply["state"]["visible"] = false;
 		streamdeck::server::instance()->notify("obs.source.event.state", reply);
 	}
 }
@@ -745,19 +767,11 @@ void streamdeck::handlers::obs_source::on_mute(void*, calldata_t* calldata)
 		return;
 	}
 
-	{ // Deprecated: obs.source.event.mute
-		nlohmann::json reply = nlohmann::json::object();
-		reply["source"]      = build_source_reference(source);
-		reply["muted"]       = muted;
-
-		streamdeck::server::instance()->notify("obs.source.event.mute", reply);
-	}
-
 	{ // obs.source.event.state
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
 		reply["state"]       = build_source_metadata(source);
-
+		reply["state"]["audio"]["muted"] = muted;
 		streamdeck::server::instance()->notify("obs.source.event.state", reply);
 	}
 }
@@ -783,7 +797,7 @@ void streamdeck::handlers::obs_source::on_volume(void*, calldata_t* calldata)
 		nlohmann::json reply = nlohmann::json::object();
 		reply["source"]      = build_source_reference(source);
 		reply["state"]       = build_source_metadata(source);
-
+		reply["state"]["audio"]["volume"] = volume;
 		streamdeck::server::instance()->notify("obs.source.event.state", reply);
 	}
 }
@@ -1108,15 +1122,80 @@ void streamdeck::handlers::obs_source::state(std::shared_ptr<streamdeck::jsonrpc
 	{
 		auto p = params.find("volume");
 		if (p != params.end()) {
-			if (!p->is_number()) {
-				throw jsonrpc::invalid_params_error("'volume' must be a number.");
-			}
-			float v = p->get<float>();
-			if ((v < 0.) || (v > 1.)) {
-				throw jsonrpc::invalid_params_error("'volume' can't be lower than 0 or higher than 1.");
-			}
+			if (p->is_object()) {
+				auto o = p->get<nlohmann::json>();
 
-			obs_source_set_volume(source.get(), v);
+				auto  pValue = o.find("value");
+				float value  = 0.f;
+				if (pValue == o.end()) {
+					throw jsonrpc::invalid_params_error("'volume.value' must be provided.");
+				} else if (!pValue->is_number()) {
+					throw jsonrpc::invalid_params_error("'volume.value' must be a number.");
+				}
+				value = pValue->get<float>();
+
+				auto        pUnit = o.find("unit");
+				std::string unit  = "%";
+				if (pUnit == o.end()) {
+					//throw jsonrpc::invalid_params_error("'volume.unit' must be provided.");
+				} else if (!pUnit->is_string()) {
+					throw jsonrpc::invalid_params_error("'volume.unit' must be a string.");
+				} else {
+					unit = pUnit->get<std::string>();
+					if ((unit != "dB") && (unit != "%")) {
+						throw jsonrpc::invalid_params_error("'volume.unit' must be one of: '%', 'dB'.");
+					}
+				}
+
+				float vol = obs_source_get_volume(source.get());
+				if (unit == "%") {
+					vol += value;
+					// Limit to 0%...100% (or 0%...Infinity)
+					vol = std::max<float>(vol, 0.f);
+					if (o.find("unlimited") == o.end()) {
+						vol = std::min<float>(vol, 1.f);
+					}
+				} else if (unit == "dB") {
+					vol = value_to_dbfs(vol);
+
+					// This will return -INFINITY for 0.0, so we need to test for that.
+					if (!isfinite(vol)) {
+						// This is a no-op for negative values, but a positive value brings it away from -96.0
+						if (value > 0) {
+							vol = -96.f + value;
+						}
+					} else {
+						vol += value;
+						if (vol <= -96.f) {
+							// If we end up below 96.f dBFS, just turn it to Infinity.
+							vol = -std::numeric_limits<float>::infinity();
+						} else {
+							// Otherwise, clamp to -96. exactly.
+							vol = std::max<float>(vol, -96.);
+						}
+					}
+
+					// Limit maximum volume to 0dBFS unless unlimited.
+					if (o.find("unlimited") == o.end()) {
+						vol = std::min<float>(vol, 0.f);
+					}
+
+					// Fix -0.0 dB bug.
+					vol = roundf(vol * 10.f) / 10.f;
+
+					vol = dbfs_to_value(vol);
+				}
+				obs_source_set_volume(source.get(), vol);
+			} else if (p->is_number()) {
+				float v = p->get<float>();
+				if ((v < 0.)) {
+					throw jsonrpc::invalid_params_error("'volume' can't be lower than 0.");
+				}
+
+				obs_source_set_volume(source.get(), v);
+			} else {
+				throw jsonrpc::invalid_params_error("'volume' must be a number or object.");
+			}
 		}
 	}
 
