@@ -18,6 +18,7 @@
 #include <thread>
 #include "module.hpp"
 #include "server.hpp"
+#include <util/platform.h>
 
 #include <callback/signal.h>
 #include <media-io/audio-math.h>
@@ -117,6 +118,22 @@ static std::map<obs_group_type, std::string> group_type_map = {
 	{OBS_COMBO_INVALID, ""}, // Not a bug in our code, this is what is actually in obs-properties.h. - Xaymar
 	{OBS_GROUP_NORMAL, "normal"},
 	{OBS_GROUP_CHECKABLE, "checkable"},
+};
+static std::map<obs_icon_type, std::string> icon_type_map = {
+	{OBS_ICON_TYPE_UNKNOWN, "unknown"}, 
+	{OBS_ICON_TYPE_IMAGE, "image"},
+	{OBS_ICON_TYPE_COLOR, "color"},
+	{OBS_ICON_TYPE_SLIDESHOW , "slideshow"},
+	{OBS_ICON_TYPE_AUDIO_INPUT, "audio_input"},
+	{OBS_ICON_TYPE_AUDIO_OUTPUT, "audio_output"},
+	{OBS_ICON_TYPE_DESKTOP_CAPTURE, "desktop_capture"},
+	{OBS_ICON_TYPE_WINDOW_CAPTURE, "window_capture"},
+	{OBS_ICON_TYPE_GAME_CAPTURE, "game_capture"},
+	{OBS_ICON_TYPE_CAMERA, "camera"},
+	{OBS_ICON_TYPE_TEXT, "text"},
+	{OBS_ICON_TYPE_MEDIA, "media"},
+	{OBS_ICON_TYPE_BROWSER, "browser"},
+	{OBS_ICON_TYPE_CUSTOM, "custom"},
 };
 
 static std::shared_ptr<obs_source> resolve_source_reference(nlohmann::json value)
@@ -455,7 +472,8 @@ nlohmann::json build_properties_metadata(obs_properties_t* props)
 	return res;
 }
 
-static void listen_source_signals(obs_source_t* source, void* ptr)
+
+void streamdeck::handlers::listen_source_signals(obs_source_t* source, void* ptr)
 {
 	auto osh = obs_source_get_signal_handler(source);
 	signal_handler_connect(osh, "rename", &streamdeck::handlers::obs_source::on_rename, ptr);
@@ -487,7 +505,7 @@ static void listen_source_signals(obs_source_t* source, void* ptr)
 	signal_handler_connect(osh, "media_ended", &streamdeck::handlers::obs_source::on_media_ended, ptr);
 }
 
-static void silence_source_signals(obs_source_t* source, void* ptr)
+void streamdeck::handlers::silence_source_signals(obs_source_t* source, void* ptr)
 {
 	auto osh = obs_source_get_signal_handler(source);
 	signal_handler_disconnect(osh, "rename", &streamdeck::handlers::obs_source::on_rename, ptr);
@@ -526,6 +544,33 @@ float value_to_dbfs(float v)
 float dbfs_to_value(float v)
 {
 	return db_to_mul(v);
+}
+
+#define LOG_OFFSET_DB 6.0f
+#define LOG_RANGE_DB 96.0f
+/* equals -log10f(LOG_OFFSET_DB) */
+#define LOG_OFFSET_VAL -0.77815125038364363f
+/* equals -log10f(-LOG_RANGE_DB + LOG_OFFSET_DB) */
+#define LOG_RANGE_VAL -2.00860017176191756f
+
+static float log_def_to_db(const float def)
+{
+	if (def >= 1.0f)
+		return 0.0f;
+	else if (def <= 0.0f)
+		return -INFINITY;
+
+	return -(LOG_RANGE_DB + LOG_OFFSET_DB) * powf((LOG_RANGE_DB + LOG_OFFSET_DB) / LOG_OFFSET_DB, -def) + LOG_OFFSET_DB;
+}
+
+static float log_db_to_def(const float db)
+{
+	if (db >= 0.0f)
+		return 1.0f;
+	else if (db <= -96.0f)
+		return 0.0f;
+
+	return (-log10f(-db + LOG_OFFSET_DB) - LOG_RANGE_VAL) / (LOG_OFFSET_VAL - LOG_RANGE_VAL);
 }
 
 std::shared_ptr<streamdeck::handlers::obs_source> streamdeck::handlers::obs_source::instance()
@@ -570,6 +615,8 @@ streamdeck::handlers::obs_source::obs_source()
 	server->handle_sync("obs.source.media", std::bind(&streamdeck::handlers::obs_source::media, this,
 													  std::placeholders::_1, std::placeholders::_2));
 	server->handle_sync("obs.source.properties", std::bind(&streamdeck::handlers::obs_source::properties, this,
+														   std::placeholders::_1, std::placeholders::_2));
+	server->handle_sync("obs.source.icons", std::bind(&streamdeck::handlers::obs_source::icons, this,
 														   std::placeholders::_1, std::placeholders::_2));
 }
 
@@ -900,13 +947,21 @@ void streamdeck::handlers::obs_source::on_media_play(void*, calldata_t* calldata
 		return;
 	}
 
-	// Do our WebSocket work.
-	nlohmann::json reply = nlohmann::json::object();
-	reply["source"]      = build_source_reference(source);
-	reply["signal"]      = "play";
-	reply["media"]       = build_source_media_metadata(source);
+	// Queue the task with a delay since the time given isn't accurate yet when receiving this signal
+	auto t = std::thread([source]() {
+		os_sleep_ms(100);
+		queue_task(obs_task_type::OBS_TASK_UI, false, [source]() {
+			// Do our WebSocket work.
+			nlohmann::json reply = nlohmann::json::object();
+			reply["source"]      = build_source_reference(source);
+			reply["signal"]      = "play";
+			reply["media"]       = build_source_media_metadata(source);
 
-	streamdeck::server::instance()->notify("obs.source.event.media", reply);
+			streamdeck::server::instance()->notify("obs.source.event.media", reply);
+		});
+	});
+
+	t.detach();
 }
 
 void streamdeck::handlers::obs_source::on_media_pause(void*, calldata_t* calldata)
@@ -1147,16 +1202,17 @@ void streamdeck::handlers::obs_source::state(std::shared_ptr<streamdeck::jsonrpc
 					}
 				}
 
-				float vol = obs_source_get_volume(source.get());
+				float vol = value_to_dbfs(obs_source_get_volume(source.get()));
 				if (unit == "%") {
+					vol = log_db_to_def(vol);
 					vol += value;
 					// Limit to 0%...100% (or 0%...Infinity)
 					vol = std::max<float>(vol, 0.f);
 					if (o.find("unlimited") == o.end()) {
 						vol = std::min<float>(vol, 1.f);
 					}
+					vol = log_def_to_db(vol);
 				} else if (unit == "dB") {
-					vol = value_to_dbfs(vol);
 
 					// This will return -INFINITY for 0.0, so we need to test for that.
 					if (!isfinite(vol)) {
@@ -1183,8 +1239,8 @@ void streamdeck::handlers::obs_source::state(std::shared_ptr<streamdeck::jsonrpc
 					// Fix -0.0 dB bug.
 					vol = roundf(vol * 10.f) / 10.f;
 
-					vol = dbfs_to_value(vol);
 				}
+				vol = dbfs_to_value(vol);
 				obs_source_set_volume(source.get(), vol);
 			} else if (p->is_number()) {
 				float v = p->get<float>();
@@ -1432,6 +1488,24 @@ void streamdeck::handlers::obs_source::properties(std::shared_ptr<streamdeck::js
 												 [](obs_properties_t* v) { obs_properties_destroy(v); }};
 	res->set_result(build_properties_metadata(properties.get()));
 }
+
+void streamdeck::handlers::obs_source::icons(std::shared_ptr<streamdeck::jsonrpc::request>  req,
+											 std::shared_ptr<streamdeck::jsonrpc::response> res)
+{
+	nlohmann::json result = nlohmann::json::object();
+	size_t i = 0;
+	const char*  id;
+	while (obs_enum_source_types(i++, &id)) {
+		auto icon = obs_source_get_icon_type(id);
+		auto iter = icon_type_map.find(icon);
+		if (iter != icon_type_map.end()) {
+			result[id] = iter->second;
+		}
+	}
+
+	res->set_result(result);
+}
+
 
 void streamdeck::handlers::obs_source::filters(std::shared_ptr<streamdeck::jsonrpc::request>  req,
 											   std::shared_ptr<streamdeck::jsonrpc::response> res)

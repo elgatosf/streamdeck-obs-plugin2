@@ -76,6 +76,11 @@ streamdeck::server::server()
 	_worker       = std::thread(std::bind(&streamdeck::server::run, this));
 }
 
+
+void streamdeck::server::handle_connect(std::function<void()> callback) {
+	_connection_handlers.emplace_back(callback);
+}
+
 void streamdeck::server::handle(std::string method, streamdeck::server::handler_callback_t callback)
 {
 	_methods.emplace(method, handler_type::DEFAULT);
@@ -227,18 +232,23 @@ nlohmann::json streamdeck::server::handle_call(websocketpp::connection_hdl handl
 			throw streamdeck::jsonrpc::method_not_found_error("Method is unknown to us.");
 		}
 	} catch (streamdeck::jsonrpc::error const& ex) {
+		res->copy_id(*req);
 		res->set_error(ex.id(), ex.what() ? ex.what() : "Unknown error.");
 	} catch (nlohmann::json::parse_error const& ex) {
+		res->copy_id(*req);
 		res = std::make_shared<streamdeck::jsonrpc::response>();
 		res->set_error(streamdeck::jsonrpc::error_codes::INVALID_REQUEST, ex.what() ? ex.what() : "Unknown error.");
 	} catch (std::exception const& ex) {
+		res->copy_id(*req);
 		res->set_error(streamdeck::jsonrpc::error_codes::INTERNAL_ERROR, ex.what() ? ex.what() : "Unknown error.");
 	}
 	try {
 		res->validate();
 	} catch (streamdeck::jsonrpc::error const& ex) {
+		res->copy_id(*req);
 		res->set_error(streamdeck::jsonrpc::error_codes::INTERNAL_ERROR, ex.what() ? ex.what() : "Unknown error.");
 	} catch (nlohmann::json::parse_error const& ex) {
+		res->copy_id(*req);
 		res->set_error(streamdeck::jsonrpc::error_codes::INTERNAL_ERROR, ex.what() ? ex.what() : "Unknown error.");
 	}
 	return res->compile();
@@ -273,6 +283,10 @@ void streamdeck::server::ws_on_open(websocketpp::connection_hdl handle)
 	auto con = _ws.get_con_from_hdl(handle);
 
 	auto host = con->get_remote_endpoint();
+
+	for (const auto& handler : _connection_handlers) {
+		handler();
+	}
 #ifdef _DEBUG
 	DLOG(LOG_DEBUG, "New Client %s", host.c_str());
 #endif

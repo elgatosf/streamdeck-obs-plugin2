@@ -18,6 +18,7 @@
 #include "json-rpc.hpp"
 
 #include <callback/signal.h>
+#include <obs.h>
 
 namespace streamdeck {
 	namespace handlers {
@@ -70,8 +71,14 @@ namespace streamdeck {
 			void properties(std::shared_ptr<streamdeck::jsonrpc::request>,
 							std::shared_ptr<streamdeck::jsonrpc::response>);
 
+			void icons(std::shared_ptr<streamdeck::jsonrpc::request>, std::shared_ptr<streamdeck::jsonrpc::response>);
+
 			private /* Filters */:
 			void filters(std::shared_ptr<streamdeck::jsonrpc::request>, std::shared_ptr<streamdeck::jsonrpc::response>);
+
 		};
+
+		void listen_source_signals(obs_source_t* source, void* ptr);
+		void silence_source_signals(obs_source_t* source, void* ptr);
 	} // namespace handlers
 } // namespace streamdeck

@@ -28,7 +28,9 @@ namespace streamdeck {
 
 			private:
 			std::shared_ptr<streamdeck::jsonrpc::response> _ping(std::shared_ptr<streamdeck::jsonrpc::request>);
-			std::shared_ptr<streamdeck::jsonrpc::response> _version(std::shared_ptr<streamdeck::jsonrpc::request>);
+
+			void _version(std::shared_ptr<streamdeck::jsonrpc::request>  req,
+						  std::shared_ptr<streamdeck::jsonrpc::response> res);
 		};
 	} // namespace handlers
 } // namespace streamdeck

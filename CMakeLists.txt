@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.8...4.0)
 ################################################################################
 
 set(VERSION_MAJOR 5)
-set(VERSION_MINOR 4)
+set(VERSION_MINOR 5)
 set(VERSION_PATCH 0)
 set(VERSION_TWEAK 0)
 set(VERSION_SUFFIX "")
@@ -140,8 +140,15 @@ set(PROJECT_VERSION_STRING ${VERSION_STRING})
 
 set(BUILD_OLD "" CACHE BOOL "Build with the old CMake file?")
 
+if(WIN32)
+  add_definitions(/wd4127 /wd4100 /wd4189)
+endif()
+
 if ( ${BUILD_OLD} )
+    # Minimum version = MMmmpp, major minor patch all squished together
+    add_compile_definitions(OBS_MINIMUM_SUPPORT=260000)
     include("OldCMake.cmake")
 else()
+    add_compile_definitions(OBS_MINIMUM_SUPPORT=280000)
     include("OBSTemplate.cmake")
 endif()

@@ -18,6 +18,7 @@
 #include <mutex>
 #include "module.hpp"
 #include "server.hpp"
+#include "version.hpp"
 
 /* clang-format off */
 #define DLOG(LEVEL, ...) streamdeck::message(streamdeck::log_level:: LEVEL, "[Handler::System] " __VA_ARGS__)
@@ -42,7 +43,8 @@ streamdeck::handlers::system::system()
 {
 	auto server = streamdeck::server::instance();
 	server->handle("ping", std::bind(&streamdeck::handlers::system::_ping, this, std::placeholders::_1));
-	server->handle("version", std::bind(&streamdeck::handlers::system::_version, this, std::placeholders::_1));
+	server->handle_sync("version", std::bind(&streamdeck::handlers::system::_version, this, std::placeholders::_1,
+											 std::placeholders::_2));
 }
 
 std::shared_ptr<streamdeck::jsonrpc::response>
@@ -51,8 +53,8 @@ std::shared_ptr<streamdeck::jsonrpc::response>
 	return nullptr;
 }
 
-std::shared_ptr<streamdeck::jsonrpc::response>
-	streamdeck::handlers::system::_version(std::shared_ptr<streamdeck::jsonrpc::request> req)
+void streamdeck::handlers::system::_version(std::shared_ptr<streamdeck::jsonrpc::request>  req,
+											std::shared_ptr<streamdeck::jsonrpc::response> res)
 {
 	nlohmann::json params;
 	if (!req->get_params(params)) {
@@ -65,5 +67,10 @@ std::shared_ptr<streamdeck::jsonrpc::response>
 		}
 	}
 
-	return nullptr;
+	nlohmann::json result = nlohmann::json::object();
+	result["version"]     = STREAMDECK_VERSION;
+	result["semver"]      = {STREAMDECK_VERSION_MAJOR, STREAMDECK_VERSION_MINOR, STREAMDECK_VERSION_PATCH, STREAMDECK_VERSION_BUILD};
+	
+	res->set_result(result);
+
 }

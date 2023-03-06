@@ -53,6 +53,7 @@ namespace streamdeck {
 			ASYNCHRONOUS,
 		};
 
+		std::vector<std::function<void()>>              _connection_handlers;
 		std::map<std::string, handler_type>             _methods;
 		std::map<std::string, handler_callback_t>       _handler_default;
 		std::map<std::string, sync_handler_callback_t>  _handler_sync;
@@ -67,6 +68,9 @@ namespace streamdeck {
 		public:
 		~server();
 		server();
+
+		// Called when a new connection is made
+		void handle_connect(std::function<void()>);
 
 		void handle(std::string method, streamdeck::server::handler_callback_t callback);
 		void handle_sync(std::string method, streamdeck::server::sync_handler_callback_t callback);

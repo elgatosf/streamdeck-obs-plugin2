@@ -18,6 +18,7 @@
 #include "json-rpc.hpp"
 
 #include "obs-frontend-api.h"
+#include <util/platform.h>
 
 namespace streamdeck {
 	namespace handlers {
@@ -29,9 +30,13 @@ namespace streamdeck {
 			~obs_frontend();
 			obs_frontend();
 
+			bool loaded() const;
+
 			private:
 			static void handle_frontend_event(enum obs_frontend_event event, void* private_data);
 			void        handle(enum obs_frontend_event event);
+
+			static void on_rename_transition(void*, calldata_t* calldata);
 
 			void streaming_start(std::shared_ptr<streamdeck::jsonrpc::request>,
 								 std::shared_ptr<streamdeck::jsonrpc::response>);
@@ -70,10 +75,19 @@ namespace streamdeck {
 			void studiomode_disable(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
 			void studiomode_active(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
 
+			void virtualcam(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
+			void virtualcam_start(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
+			void virtualcam_stop(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
+			void virtualcam_active(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
+
 			void transition_studio(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
 
 			void scenecollection(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
 			void scenecollection_list(std::shared_ptr<streamdeck::jsonrpc::request>,
+									  std::shared_ptr<streamdeck::jsonrpc::response>);
+
+			void profile(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
+			void profile_list(std::shared_ptr<streamdeck::jsonrpc::request>,
 									  std::shared_ptr<streamdeck::jsonrpc::response>);
 
 			void scene(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>);
@@ -85,6 +99,16 @@ namespace streamdeck {
 
 			void screenshot(std::shared_ptr<streamdeck::jsonrpc::request>,
 							std::shared_ptr<streamdeck::jsonrpc::response>);
+
+			void stats(std::shared_ptr<streamdeck::jsonrpc::request>, std::shared_ptr<streamdeck::jsonrpc::response>);
+
+			void tbar(std::weak_ptr<void> handle, std::shared_ptr<streamdeck::jsonrpc::request> req);
+
+			private:
+			os_cpu_usage_info_t* cpu_info;
+			std::string active_scene_collection;
+			std::string active_profile;
+			bool                 is_loaded;
 		};
 	} // namespace handlers
 } // namespace streamdeck

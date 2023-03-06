@@ -8,6 +8,7 @@ PUSHD "%ROOT%" > NUL
 
 SET "ARCH=%1"
 SET "BUILD=%ROOT%..\build\windows_%ARCH%"
+SET "BUILDQT6=%ROOT%..\build_x64"
 SET "DISTRIB=%ROOT%..\build\distrib"
 
 :: Make Distrib Directory
@@ -16,25 +17,28 @@ if NOT EXIST "%DISTRIB%" (
 )
 
 :: Configure Qt6
-cmake -H.. -B"%BUILD%" ^
-  -G"Visual Studio 16 2019" -A"%2" ^
-  -DCMAKE_INSTALL_PREFIX="%BUILD%_install" ^
-  -DCMAKE_PREFIX_PATH="C:\Qt\6.2.2\msvc2019_64" ^
-  -DDOWNLOAD_QT=OFF ^
-  -DENABLE_CLANG=OFF ^
-  -DWITH_QT6=ON ^
-  -DBUILD_OLD=YES ^
-  -DBUILD_LOADER=no ^
-  -DPROJECT_SUFFIX=Qt6
-if %ERRORLEVEL% NEQ 0 (
-	PAUSE
-)
+::cmake -H.. -B"%BUILD%" ^
+::  -G"Visual Studio 16 2019" -A"%2" ^
+::  -DCMAKE_INSTALL_PREFIX="%BUILD%_install" ^
+::  -DCMAKE_PREFIX_PATH="C:\Qt\6.2.2\msvc2019_64" ^
+::  -DDOWNLOAD_QT=OFF ^
+::  -DENABLE_CLANG=OFF ^
+::  -DWITH_QT6=ON ^
+::  -DBUILD_OLD=NO ^
+::  -DBUILD_LOADER=no ^
+::  -DPROJECT_SUFFIX=Qt6
+::if %ERRORLEVEL% NEQ 0 (
+::	PAUSE
+::)
 
 :: Compile Qt6
-cmake --build "%BUILD%" --config RelWithDebInfo --target INSTALL
-if %ERRORLEVEL% NEQ 0 (
-	PAUSE
-)
+::cmake --build "%BUILD%" --config RelWithDebInfo --target INSTALL
+::if %ERRORLEVEL% NEQ 0 (
+::	PAUSE
+::)
+
+pwsh ..\obs-scripts\scripts\Build-Windows.ps1 RelWithDebInfo x64 "Visual Studio 16 2019"
+
 
 :: Configure Qt5
 cmake -H.. -B"%BUILD%" ^
@@ -82,9 +86,11 @@ POPD > NUL
 PUSHD "%ROOT%../installer/Windows" > NUL
 
 set "OBSPluginLocation=%BUILD%/RelWithDebInfo"
+set "OBSPluginLocationQt6=%BUILDQT6%/RelWithDebInfo"
 set BUILD_SETUP_CONFIGURATION=Setup
 echo BUILD=%BUILD%
 echo OBSPluginLocation=%OBSPluginLocation%
+echo OBSPluginLocationQt6=%OBSPluginLocationQt6%
 call Setup_Bamboo.bat
 
 POPD > NUL

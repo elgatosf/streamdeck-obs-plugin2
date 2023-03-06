@@ -16,6 +16,7 @@
 #include "module.hpp"
 #include <cstdarg>
 #include <vector>
+#include <memory>
 #include "server.hpp"
 #include "version.hpp"
 #include "details-popup.hpp"
@@ -26,6 +27,7 @@
 #include "handlers/handler-system.hpp"
 
 #include "obs-module.h"
+#include <obs.h>
 
 static std::shared_ptr<streamdeck::server>                 _server;
 static std::shared_ptr<streamdeck::handlers::system>       _handler_system;
@@ -85,4 +87,20 @@ void streamdeck::message(streamdeck::log_level level, const char* format, ...)
 	va_end(va);
 
 	blog(static_cast<int>(level), "<StreamDeck> %s", buffer.data());
+}
+
+
+void streamdeck::queue_task(obs_task_type type, bool wait, std::function<void()> func) {
+	std::function<void()>* pd = new std::function<void()>(std::move(func));
+
+	obs_queue_task(
+		type,
+		[](void* ptr) {
+			auto pd = static_cast<std::function<void()>*>(ptr);
+			auto func = std::move(*pd);
+			delete pd;
+			// Ensure the passed data is deleted before calling the function just in case there's an uncaught exception
+			func();
+		},
+		pd, wait);
 }

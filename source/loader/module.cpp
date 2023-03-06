@@ -36,9 +36,7 @@ static obs_module_t* obs_module_pointer;
 MODULE_EXPORT void   obs_module_set_pointer(obs_module_t* module)
 {
 	obs_module_pointer = module;
-	blog(static_cast<int>(300), "<StreamDeck> obs_module_set_pointer");
 	if (ind_obs_module_set_pointer) {
-		blog(static_cast<int>(300), "<StreamDeck> obs_module_set_pointer done");
 		ind_obs_module_set_pointer(module);
 	}
 }

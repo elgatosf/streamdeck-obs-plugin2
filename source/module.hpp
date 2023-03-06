@@ -15,9 +15,11 @@
 
 #pragma once
 #include <string>
+#include <functional>
 
 #include "config.hpp"
 #include "version.hpp"
+#include <obs.h>
 
 namespace streamdeck {
 	std::string get_translated_text(const std::string& text);
@@ -31,4 +33,6 @@ namespace streamdeck {
 	};
 
 	void message(log_level level, const char* format, ...);
+
+	void queue_task(obs_task_type type, bool wait, std::function<void()> func);
 } // namespace streamdeck

@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>374</width>
-    <height>140</height>
+    <width>503</width>
+    <height>155</height>
    </rect>
   </property>
   <property name="contextMenuPolicy">
@@ -28,8 +28,8 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>140</x>
-     <y>100</y>
+     <x>270</x>
+     <y>120</y>
      <width>221</width>
      <height>31</height>
     </rect>
@@ -68,7 +68,7 @@
     <rect>
      <x>100</x>
      <y>20</y>
-     <width>261</width>
+     <width>391</width>
      <height>31</height>
     </rect>
    </property>
@@ -87,7 +87,7 @@
     <rect>
      <x>100</x>
      <y>60</y>
-     <width>261</width>
+     <width>391</width>
      <height>20</height>
     </rect>
    </property>
@@ -100,7 +100,7 @@
     <rect>
      <x>100</x>
      <y>80</y>
-     <width>261</width>
+     <width>391</width>
      <height>20</height>
     </rect>
    </property>
