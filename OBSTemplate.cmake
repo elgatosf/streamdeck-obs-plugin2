@@ -32,50 +32,63 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE ${PROJECT_DEFINITIONS})
 
 # Add your custom source files here - header files are optional and only required for visibility
 # e.g. in Xcode or Visual Studio
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-        "source/module.hpp"
-        "source/module.cpp"
-        "source/json-rpc.hpp"
-        "source/json-rpc.cpp"
-        "source/server.hpp"
-        "source/server.cpp"
-        "source/handlers/handler-system.hpp"
-        "source/handlers/handler-system.cpp"
-        "source/handlers/handler-obs-frontend.hpp"
-        "source/handlers/handler-obs-frontend.cpp"
-        "source/handlers/handler-obs-source.hpp"
-        "source/handlers/handler-obs-source.cpp"
-        "source/handlers/handler-obs-scene.hpp"
-        "source/handlers/handler-obs-scene.cpp"
-        "source/details-popup.cpp"
-        "source/details-popup.hpp"
-        "${PROJECT_BINARY_DIR}/generated/module.cpp"
-)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-        "${PROJECT_BINARY_DIR}/generated"
-        "${PROJECT_SOURCE_DIR}/source"
-        "third-party/nlohmann-json/single_include/"
-        "third-party/websocketpp/"
-        "third-party/asio/asio/include"
-)
+if(NOT BUILD_LOADER)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+            "source/module.hpp"
+            "source/module.cpp"
+            "source/json-rpc.hpp"
+            "source/json-rpc.cpp"
+            "source/server.hpp"
+            "source/server.cpp"
+            "source/handlers/handler-system.hpp"
+            "source/handlers/handler-system.cpp"
+            "source/handlers/handler-obs-frontend.hpp"
+            "source/handlers/handler-obs-frontend.cpp"
+            "source/handlers/handler-obs-source.hpp"
+            "source/handlers/handler-obs-source.cpp"
+            "source/handlers/handler-obs-scene.hpp"
+            "source/handlers/handler-obs-scene.cpp"
+            "source/details-popup.cpp"
+            "source/details-popup.hpp"
+            "${PROJECT_BINARY_DIR}/generated/module.cpp"
+                        
+    )
+
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+            "${PROJECT_BINARY_DIR}/generated"
+            "${PROJECT_SOURCE_DIR}/source"
+            "third-party/nlohmann-json/single_include/"
+            "third-party/websocketpp/"
+            "${ASIO_PATH}/asio/include"
+    )
+else()
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        "source/loader/module.cpp"
+    )
+    #set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+endif()
+
 
 # Import libobs as main plugin dependency
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
 
-# Uncomment these lines if you want to use the OBS Frontend API in your plugin
-find_package(obs-frontend-api REQUIRED)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 
-find_qt(COMPONENTS Widgets Core)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets)
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-    AUTOMOC ON
-    AUTOUIC ON
-    AUTORCC ON
-    AUTOUIC_SEARCH_PATHS "${PROJECT_SOURCE_DIR};${PROJECT_SOURCE_DIR}/ui"
-)
+if(NOT BUILD_LOADER)
+    # Uncomment these lines if you want to use the OBS Frontend API in your plugin
+    find_package(obs-frontend-api REQUIRED)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
+
+    find_qt(COMPONENTS Widgets Core)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets)
+    set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+        AUTOMOC ON
+        AUTOUIC ON
+        AUTORCC ON
+        AUTOUIC_SEARCH_PATHS "${PROJECT_SOURCE_DIR};${PROJECT_SOURCE_DIR}/ui"
+    )
+endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 17
@@ -111,6 +124,7 @@ if(D_PLATFORM_WINDOWS) # Windows Support
         @ONLY
     )
 endif()
+
 
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 

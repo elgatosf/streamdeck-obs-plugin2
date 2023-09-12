@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.8...4.0)
 
 set(VERSION_MAJOR 5)
 set(VERSION_MINOR 5)
-set(VERSION_PATCH 0)
+set(VERSION_PATCH 1)
 set(VERSION_TWEAK 0)
 set(VERSION_SUFFIX "")
 set(VERSION_COMMIT "00000000")
@@ -114,6 +114,8 @@ message(STATUS "${LOGPREFIX} Version ${VERSION_STRING}")
 ################################################################################
 
 set(PROJECT_SUFFIX "" CACHE STRING "Optional suffix for project name")
+set(ASIO_PATH "third-party/asio/asio" CACHE STRING "Which path should ASIO be loaded from")
+set(BUILD_LOADER OFF CACHE BOOL "Build Loader library instead")
 
 project(
     StreamDeckPlugin${PROJECT_SUFFIX}
@@ -144,6 +146,14 @@ if(WIN32)
   add_definitions(/wd4127 /wd4100 /wd4189)
 endif()
 
+################################################################################
+# Codesign
+################################################################################
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/submodules/maketools-for-windows/Signing/corsair_sign_regular.bat")
+	set(HAVE_CODESIGN ON)
+endif()
+
 if ( ${BUILD_OLD} )
     # Minimum version = MMmmpp, major minor patch all squished together
     add_compile_definitions(OBS_MINIMUM_SUPPORT=260000)
@@ -152,3 +162,22 @@ else()
     add_compile_definitions(OBS_MINIMUM_SUPPORT=280000)
     include("OBSTemplate.cmake")
 endif()
+
+
+# Windows
+if(D_PLATFORM_WINDOWS)
+    if(HAVE_CODESIGN)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND call ${PROJECT_SOURCE_DIR}/submodules/maketools-for-windows/Signing/corsair_sign_regular.bat $(TargetDir)$(TargetFileName)
+        )
+    endif()
+endif()
+
+
+
+
+
+
+
+
+

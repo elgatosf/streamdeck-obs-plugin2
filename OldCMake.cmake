@@ -181,13 +181,7 @@ if(${PREFIX}ENABLE_CLANG AND (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/clang/Cl
 	set(HAVE_CLANG ON)
 endif()
 
-################################################################################
-# Codesign
-################################################################################
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/submodules/maketools-for-windows/Signing/corsair_sign_regular.bat")
-	set(HAVE_CODESIGN ON)
-endif()
 
 
 ################################################################################
@@ -453,9 +447,8 @@ if(STANDALONE AND NOT D_PLATFORM_LINUX)
 endif()
 
 
-set(${PREFIX}BUILD_LOADER OFF CACHE BOOL "Build Loader library instead")
 
-if(NOT ${PREFIX}BUILD_LOADER)
+if(NOT BUILD_LOADER)
 	if(${PREFIX}WITH_QT6)
         unset(QT_FEATURE_separate_debug_info)
         unset(QT_FEATURE_dbus)
@@ -526,7 +519,7 @@ LIST(APPEND PROJECT_TEMPLATES "templates/version.hpp.in")
 LIST(APPEND PROJECT_PRIVATE_GENERATED "${PROJECT_BINARY_DIR}/generated/version.hpp")
 
 
-if(NOT ${PREFIX}BUILD_LOADER)
+if(NOT BUILD_LOADER)
 	configure_file(
 		"templates/module.cpp.in"
 		"generated/module.cpp"
@@ -557,7 +550,7 @@ endif()
 list(APPEND PROJECT_LIBRARIES
 	libobs
 )
-if(NOT ${PREFIX}BUILD_LOADER)
+if(NOT BUILD_LOADER)
 	# Minimum Dependencies
 	list(APPEND PROJECT_LIBRARIES
 		obs-frontend-api
@@ -565,7 +558,7 @@ if(NOT ${PREFIX}BUILD_LOADER)
 endif()
 
 
-if(NOT ${PREFIX}BUILD_LOADER)
+if(NOT BUILD_LOADER)
 	# Qt
 	if(${PREFIX}WITH_QT6)
 		list(APPEND PROJECT_LIBRARIES
@@ -616,12 +609,12 @@ if(NOT ${PREFIX}BUILD_LOADER)
 		-D_WEBSOCKETPP_CPP11_STL_
 	)
 else()
-	list(APPEND PROJECT_PRIVATE_SOURCE
-		"source/loader/module.cpp"
-	)
-	list(APPEND PROJECT_DEFINITIONS
-		-DIS_LOADER
-	)
+    list(APPEND PROJECT_PRIVATE_SOURCE
+        "source/loader/module.cpp"
+    )
+    list(APPEND PROJECT_DEFINITIONS
+        -DIS_LOADER
+    )
 endif()
 
 list(APPEND PROJECT_DEFINITIONS
@@ -835,7 +828,7 @@ if(D_PLATFORM_MAC)
 		message(STATUS "${LOGPREFIX} Added post-build step for adjusting libobs-frontend-api linking path.")
 	endif()
 
-	if (NOT ${PREFIX}BUILD_LOADER)
+	if (NOT BUILD_LOADER)
 		if(${PREFIX}WITH_QT6)
 			# Figure out the linker location for Qt6::Core
 			mac_get_linker_id(TARGET Qt6::Core OUTPUT T_QT6CORE_LINK)
@@ -846,7 +839,7 @@ if(D_PLATFORM_MAC)
 			# Figure out the linker location for Qt6::Widsgets
 			mac_get_linker_id(TARGET Qt6::Widgets OUTPUT T_QT6WIDGETS_LINK)
 
-			
+
 			message(STATUS "${LOGPREFIX} Added post-build step for adjusting Qt6::Core linking path (Found: ${Qt6_DIR} resolved to ${T_QT6CORE_LINK}).")
 			message(STATUS "${LOGPREFIX} Added post-build step for adjusting Qt6::Gui linking path (Found: ${Qt6_DIR} resolved to ${T_QT6GUI_LINK}).")
 			message(STATUS "${LOGPREFIX} Added post-build step for adjusting Qt6::Widgets linking path (Found: ${Qt6_DIR} resolved to ${T_QT6WIDGETS_LINK}).")
@@ -1048,9 +1041,6 @@ if(NOT ${PREFIX}OBS_NATIVE)
 			file(TO_NATIVE_PATH "${ISS_MSVCHELPER_PATH}" ISS_MSVCHELPER_PATH)
 
 			if(HAVE_CODESIGN)
-				add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-					COMMAND call ${PROJECT_SOURCE_DIR}/submodules/maketools-for-windows/Signing/corsair_sign_regular.bat $(TargetDir)$(TargetFileName)
-				)
 				configure_file(
 					"templates/installer-signed.iss.in"
 					"installer.iss"

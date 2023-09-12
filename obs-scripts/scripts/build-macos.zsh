@@ -81,6 +81,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
                                       - Ninja
                                       - Unix Makefiles
                                       - Xcode (macOS only)
+  %B-D[definition]%b                     Pass a definition to cmake
 
 %F{yellow} Output options%f
  -----------------------------------------------------------------------------
@@ -93,7 +94,9 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
  -----------------------------------------------------------------------------
   %B-h | --help%b                       Print this usage help
   %B-V | --version%b                    Print script version information"
-
+  
+    local -a cmake_defs=(
+    )
   local -a args
   while (( # )) {
     case ${1} {
@@ -144,6 +147,12 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
         generator=${2}
         shift 2
         ;;
+      -D*)
+        cmake_defs+=(
+          ${1}
+        )
+        shift
+      ;;
       --skip-*)
         local _skip="${${(s:-:)1}[-1]}"
         local _check=(all deps unpack build)
@@ -225,15 +234,15 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
         num_procs=$(( $(nproc) + 1 ))
         ;;
     }
-
-    log_debug "Attempting to configure ${product_name} with CMake arguments: ${cmake_args}"
+    cmake_args+=( ${cmake_defs[@]} )
+        log_info "Attempting to configure ${product_name} with CMake arguments: ${cmake_args}"
     cmake -S . -B build_${target##*-} -G ${generator} ${cmake_args}
 
     log_info "Building ${product_name}..."
     local -a cmake_args=()
     if (( _loglevel > 1 )) cmake_args+=(--verbose)
     if [[ ${generator} == 'Unix Makefiles' ]] cmake_args+=(--parallel ${num_procs})
-    cmake --build build_${target##*-} --config ${BUILD_CONFIG:-RelWithDebInfo} ${cmake_args}
+    cmake --build build_${target##*-} --config ${BUILD_CONFIG:-RelWithDebInfo} ${cmake_args} 
   }
 
   log_info "Installing ${product_name}..."

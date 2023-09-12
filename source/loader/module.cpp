@@ -61,13 +61,27 @@ MODULE_EXPORT bool obs_module_load(void)
 	}
 
 	std::string data_path = obs_get_module_data_path(obs_current_module());
-	if (version_major < 28) {
-		data_path += "/StreamDeckPluginQt5";
-	} else {
-		data_path += "/StreamDeckPluginQt6";
-	}
+#ifdef __APPLE__
+    if (version_major < 28) {
+        data_path += "/StreamDeckPluginQt5";
+    } else if (version_major < 30){
+        data_path += "/StreamDeckPluginASIO1-12-1.plugin/Contents/MacOS/StreamDeckPluginASIO1-12-1";
+    } else {
+        data_path += "/StreamDeckPluginASIO1-28-0.plugin/Contents/MacOS/StreamDeckPluginASIO1-28-0";
+    }
+#endif
+#ifdef _WIN32
+    if (version_major < 28) {
+        data_path += "/StreamDeckPluginQt5";
+    } else if (version_major < 30){
+        data_path += "/StreamDeckPluginQt6";
+    } else {
+        data_path += "/StreamDeckPluginQt6-ASIO1-28-0";
+    }
+#endif
 	dl_handle = os_dlopen(data_path.c_str());
 	if (!dl_handle) {
+        blog(LOG_INFO, "<StreamDeck Wrap> Failed Load");
 		return false;
 	}
 	ind_obs_module_load = (bool(*)(void))(os_dlsym(dl_handle, "obs_module_load"));
