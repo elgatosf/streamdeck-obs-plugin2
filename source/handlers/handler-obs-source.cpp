@@ -1484,7 +1484,7 @@ void streamdeck::handlers::obs_source::properties(std::shared_ptr<streamdeck::js
 	}
 
 	// Convert properties into useful JSON objects.
-	std::shared_ptr<obs_properties_t> properties{obs_get_source_properties(obs_source_get_id(source.get())),
+	std::shared_ptr<obs_properties_t> properties{obs_source_properties(source.get()),
 												 [](obs_properties_t* v) { obs_properties_destroy(v); }};
 	res->set_result(build_properties_metadata(properties.get()));
 }
