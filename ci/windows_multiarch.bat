@@ -49,7 +49,8 @@ cmake -H.. -B"%BUILD%" ^
   -DBUILD_OLD=YES ^
   -DENABLE_CLANG=OFF ^
   -DBUILD_LOADER=no ^
-  -DPROJECT_SUFFIX=Qt5
+  -DPROJECT_SUFFIX=Qt5 ^
+  -DASIO_PATH=third-party/asio
 if %ERRORLEVEL% NEQ 0 (
 	PAUSE
 )

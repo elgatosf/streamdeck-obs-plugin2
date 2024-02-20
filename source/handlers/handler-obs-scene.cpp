@@ -85,15 +85,22 @@ static nlohmann::json build_sceneitem_info(obs_sceneitem_t* item)
 	return o;
 };
 
-static nlohmann::json build_sceneitem_reference(obs_sceneitem_t* item)
+static nlohmann::json build_sceneitem_reference(obs_scene_t * scene, obs_sceneitem_t* item)
 {
-	obs_scene_t*  scene  = obs_sceneitem_get_scene(item);
 	obs_source_t* source = obs_sceneitem_get_source(item);
 	int64_t       id     = obs_sceneitem_get_id(item);
 
 	nlohmann::json o = nlohmann::json::array();
-	o.push_back(obs_source_get_name(obs_scene_get_source(scene)));
-	o.push_back(obs_source_get_name(source));
+	auto           scene_name = obs_source_get_name(obs_scene_get_source(scene));
+	if (!scene_name) {
+		scene_name = "";
+	}
+	o.push_back(scene_name);
+	auto source_name = obs_source_get_name(source);
+	if (!source_name) {
+		source_name = "";
+	}
+	o.push_back(source_name);
 	o.push_back(id);
 
 	return o;
@@ -270,7 +277,7 @@ void streamdeck::handlers::obs_scene::on_item_add(void* ptr, calldata_t* calldat
 
 	// 2. Signal remote about changes.
 	nlohmann::json o = nlohmann::json::object();
-	o["item"]        = build_sceneitem_reference(item);
+	o["item"]        = build_sceneitem_reference(scene, item);
 	o["state"]       = build_sceneitem_info(item);
 	streamdeck::server::instance()->notify("obs.scene.event.item.add", o);
 
@@ -344,7 +351,7 @@ void streamdeck::handlers::obs_scene::on_item_remove(void* ptr, calldata_t* call
 
 	// 2. Signal remote about changes.
 	nlohmann::json o = nlohmann::json::object();
-	o["item"]        = build_sceneitem_reference(item);
+	o["item"]        = build_sceneitem_reference(scene, item);
 	o["state"]       = build_sceneitem_info(item);
 	streamdeck::server::instance()->notify("obs.scene.event.item.remove", o);
 }
@@ -373,7 +380,7 @@ void streamdeck::handlers::obs_scene::on_item_visible(void*, calldata_t* calldat
 
 	// 2. Signal remote about changes.
 	nlohmann::json o = nlohmann::json::object();
-	o["item"]        = build_sceneitem_reference(item);
+	o["item"]        = build_sceneitem_reference(scene, item);
 	o["state"]       = build_sceneitem_info(item);
 	streamdeck::server::instance()->notify("obs.scene.event.item.visible", o);
 }
@@ -398,7 +405,7 @@ void streamdeck::handlers::obs_scene::on_item_transform(void* ptr, calldata_t* c
 
 	// 2. Signal remote about changes.
 	nlohmann::json o = nlohmann::json::object();
-	o["item"]        = build_sceneitem_reference(item);
+	o["item"]        = build_sceneitem_reference(scene, item);
 	o["state"]       = build_sceneitem_info(item);
 	streamdeck::server::instance()->notify("obs.scene.event.item.transform", o);
 }

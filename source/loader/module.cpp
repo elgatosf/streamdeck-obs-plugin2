@@ -76,7 +76,8 @@ MODULE_EXPORT bool obs_module_load(void)
     } else if (version_major < 30){
         data_path += "/StreamDeckPluginQt6";
     } else {
-        data_path += "/StreamDeckPluginQt6-ASIO1-28-0";
+        //data_path += "/StreamDeckPluginQt6-ASIO1-28-0";
+        data_path += "/StreamDeckPluginQt6";
     }
 #endif
 	dl_handle = os_dlopen(data_path.c_str());

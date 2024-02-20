@@ -1,0 +1,12 @@
+[submodule "third-party/nlohmann-json"]
+	path = third-party/nlohmann-json
+	url = https://github.com/nlohmann/json.git
+[submodule "third-party/websocketpp"]
+	path = third-party/websocketpp
+	url = https://github.com/zaphoyd/websocketpp.git
+[submodule "third-party/asio"]
+	path = third-party/asio
+	url = https://github.com/chriskohlhoff/asio.git
+[submodule "third-party/asio-1-28-0"]
+	path = third-party/asio-1-28-0
+	url = https://github.com/chriskohlhoff/asio.git
