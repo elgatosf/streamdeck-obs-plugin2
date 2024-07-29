@@ -19,10 +19,17 @@
 #include "module.hpp"
 #include "server.hpp"
 #include "handler-obs-source.hpp"
+#include <util/config-file.h>
 
 /* clang-format off */
 #define DLOG(LEVEL, ...) streamdeck::message(streamdeck::log_level:: LEVEL, "[Handler::OBS::Frontend] " __VA_ARGS__)
 /* clang-format on */
+
+
+void* streamdeck::handlers::obs_frontend::frontend_library;
+
+bool (*streamdeck::handlers::obs_frontend::obs_frontend_recording_add_chapter)(const char*);
+
 
 // Converts a sync function into an async function
 static std::function<void(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request>)> make_async(
@@ -87,10 +94,25 @@ streamdeck::handlers::obs_frontend::~obs_frontend()
 {
 	os_cpu_usage_info_destroy(cpu_info);
 	obs_frontend_remove_event_callback(streamdeck::handlers::obs_frontend::handle_frontend_event, this);
+
 }
 
 streamdeck::handlers::obs_frontend::obs_frontend()
 {
+	// Load future components
+	if (!frontend_library) {
+		frontend_library = os_dlopen("obs-frontend-api");	
+	}
+	if (!frontend_library) {
+		// MacOS currently appends .so when searching for dynamic libraries, when the frontend is actually a .dylib
+		frontend_library = os_dlopen("obs-frontend-api.dylib");
+	}
+
+	if (frontend_library) {
+		obs_frontend_recording_add_chapter =
+			(bool (*)(const char*))os_dlsym(frontend_library, "obs_frontend_recording_add_chapter");
+	}
+
 	cpu_info = os_cpu_usage_info_start();
 	is_loaded = false;
 
@@ -209,6 +231,14 @@ streamdeck::handlers::obs_frontend::obs_frontend()
 
 	server->handle_async("obs.frontend.tbar", std::bind(&streamdeck::handlers::obs_frontend::tbar, this,
 														 std::placeholders::_1, std::placeholders::_2));
+
+	server->handle_async("obs.frontend.recording.addchapter",
+						 std::bind(&streamdeck::handlers::obs_frontend::recording_add_chapter, this,
+								   std::placeholders::_1, std::placeholders::_2));
+
+	server->handle_async("obs.frontend.output.get",
+						 std::bind(&streamdeck::handlers::obs_frontend::get_output, this,
+								   std::placeholders::_1, std::placeholders::_2));
 }
 
 bool streamdeck::handlers::obs_frontend::loaded() const {
@@ -1644,6 +1674,117 @@ void streamdeck::handlers::obs_frontend::tbar(std::weak_ptr<void>               
 			res->set_result(res_obj);
 			streamdeck::server::instance()->reply(handle, res);
 		} catch (const std::exception& ex) {
+			try {
+				auto res = std::make_shared<streamdeck::jsonrpc::response>();
+				res->copy_id(*req);
+				res->set_error(jsonrpc::SERVER_ERROR, ex.what());
+				streamdeck::server::instance()->reply(handle, res);
+			} catch (...) {
+			}
+		}
+	});
+}
+
+void streamdeck::handlers::obs_frontend::recording_add_chapter(std::weak_ptr<void>    handle,
+											  std::shared_ptr<streamdeck::jsonrpc::request> req)
+{
+	/** obs.frontend.recording.addchapter
+	 *
+	 * @param name {string} [Optional]
+	 * 
+	 * @return {bool} Whether or not the request succeeded
+	 */
+
+	streamdeck::queue_task(obs_task_type::OBS_TASK_UI, false, [handle, req]() {
+		nlohmann::json params;
+		std::string name;
+		const char*    name_pointer = nullptr;
+
+		try {
+			auto res = std::make_shared<streamdeck::jsonrpc::response>();
+			res->copy_id(*req);
+
+
+			if (req->get_params(params)) {
+				nlohmann::json::iterator param;
+				param = params.find("name");
+				if (param != params.end()) {
+					if (param->is_string()) {
+						name         = *param;
+						name_pointer = name.c_str();
+					} else {
+						throw jsonrpc::invalid_params_error(
+							"The parameter 'name' must be of type 'string' if present.");
+					}
+				}
+			}
+
+			if (!obs_frontend_recording_add_chapter) {
+				throw jsonrpc::invalid_request_error("This function is incompatible with the connected version of OBS.");
+			}
+
+			auto result = obs_frontend_recording_add_chapter(name_pointer);
+			res->set_result(result);
+			res->validate();
+			streamdeck::server::instance()->reply(handle, res);
+		} catch (const std::exception& ex) {
+			try {
+				auto res = std::make_shared<streamdeck::jsonrpc::response>();
+				res->copy_id(*req);
+				res->set_error(jsonrpc::SERVER_ERROR, ex.what());
+				streamdeck::server::instance()->reply(handle, res);
+			} catch (...) {
+			}
+		}
+	});
+}
+
+
+void streamdeck::handlers::obs_frontend::get_output(std::weak_ptr<void>                           handle,
+															  std::shared_ptr<streamdeck::jsonrpc::request> req)
+{
+	/** obs.frontend.output.get
+	 * 
+	 * @return {object} A description of the current output info
+	 */
+
+
+	streamdeck::queue_task(obs_task_type::OBS_TASK_UI, false, [handle, req]() {
+		nlohmann::json params;
+		obs_output_t  *output = nullptr;
+
+		try {
+			auto res = std::make_shared<streamdeck::jsonrpc::response>();
+			res->copy_id(*req);
+			auto res_obj = nlohmann::json::object();
+
+			if (!req->get_params(params)) {
+				res->set_result(res_obj);
+				return;
+			}
+			auto config = obs_frontend_get_profile_config();
+			auto mode = config_get_string(config, "Output", "Mode");
+			const char* format = nullptr;
+			if (mode && mode == std::string("Advanced")) {
+				format = config_get_string(config, "AdvOut", "RecFormat2");
+			} else {
+				format = config_get_string(config, "SimpleOutput", "RecFormat2");
+			}
+			if (format) {
+				res_obj["format"] = format;
+			}
+
+			res->set_result(res_obj);
+			res->validate();
+			streamdeck::server::instance()->reply(handle, res);
+
+			obs_output_release(output);
+			output = nullptr;
+
+		} catch (const std::exception& ex) {
+			if (output != nullptr) {
+				obs_output_release(output);
+			}
 			try {
 				auto res = std::make_shared<streamdeck::jsonrpc::response>();
 				res->copy_id(*req);

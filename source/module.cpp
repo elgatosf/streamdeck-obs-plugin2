@@ -40,7 +40,6 @@ static std::shared_ptr<streamdeck::handlers::obs_source>   _handler_obs_source;
 MODULE_EXPORT bool obs_module_load(void)
 {
 	try {
-		
 		streamdeck::message(streamdeck::log_level::LOG_INFO, "Plugin version %s", STREAMDECK_VERSION);
 
 		obs_frontend_add_tools_menu_item(obs_module_text("Streamdeck.Title"), plugin_show_details, nullptr);

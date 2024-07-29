@@ -70,6 +70,8 @@ void streamdeck::handlers::system::_version(std::shared_ptr<streamdeck::jsonrpc:
 	nlohmann::json result = nlohmann::json::object();
 	result["version"]     = STREAMDECK_VERSION;
 	result["semver"]      = {STREAMDECK_VERSION_MAJOR, STREAMDECK_VERSION_MINOR, STREAMDECK_VERSION_PATCH, STREAMDECK_VERSION_BUILD};
+	result["obsver"]      = obs_get_version();
+	result["obsverstr"] = obs_get_version_string();
 	
 	res->set_result(result);
 

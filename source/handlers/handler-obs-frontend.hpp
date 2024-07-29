@@ -104,11 +104,17 @@ namespace streamdeck {
 
 			void tbar(std::weak_ptr<void> handle, std::shared_ptr<streamdeck::jsonrpc::request> req);
 
+			void recording_add_chapter(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request> req);
+			void get_output(std::weak_ptr<void>, std::shared_ptr<streamdeck::jsonrpc::request> req);
+
 			private:
 			os_cpu_usage_info_t* cpu_info;
 			std::string active_scene_collection;
 			std::string active_profile;
 			bool                 is_loaded;
+			static void*                frontend_library;
+
+			static bool (*obs_frontend_recording_add_chapter)(const char*);
 		};
 	} // namespace handlers
 } // namespace streamdeck

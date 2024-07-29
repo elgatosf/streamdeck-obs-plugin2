@@ -286,6 +286,12 @@ Called whenever the OBS Studio frontend changes the recording status.
     * **"PAUSED"**: Recording is paused.
     * **"UNPAUSED"**: Recording is unpaused.
 
+### obs.frontend.recording.addchapter
+Call this to insert a chapter marker in the currently running recording
+
+#### Parameters
+*{string} **name**: A name to use for the marker *(Optional)*
+
 ### obs.frontend.event.replaybuffer
 Called whenever the OBS Studio frontend changes the replay buffer status.
 
@@ -352,3 +358,8 @@ The state of the studio mode tbar has changed
 #### Parameters
 * {int} **position**: The new position of the tbar
 
+
+### obs.frontend.output.get
+Returns an object containing relevant information about the currently configured outputs
+### Returns
+At the moment it just returns the configured recording container format in an object
