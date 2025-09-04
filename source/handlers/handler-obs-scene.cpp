@@ -39,7 +39,7 @@ static nlohmann::json build_sceneitem_transform(obs_sceneitem_t* item)
 {
 	obs_transform_info ti;
 	nlohmann::json     o = nlohmann::json::object();
-	obs_sceneitem_get_info(item, &ti);
+	obs_sceneitem_get_info2(item, &ti);
 	{
 		auto p = nlohmann::json::array();
 		p.push_back(ti.pos.x);
