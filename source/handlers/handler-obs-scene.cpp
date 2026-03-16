@@ -91,18 +91,17 @@ static nlohmann::json build_sceneitem_reference(obs_scene_t * scene, obs_sceneit
 	int64_t       id     = obs_sceneitem_get_id(item);
 
 	nlohmann::json o = nlohmann::json::array();
-	auto           scene_name = obs_source_get_name(obs_scene_get_source(scene));
-	if (!scene_name) {
-		scene_name = "";
+	auto           scene_uuid = obs_source_get_uuid(obs_scene_get_source(scene));
+	if (!scene_uuid) {
+		scene_uuid = "";
 	}
-	o.push_back(scene_name);
-	auto source_name = obs_source_get_name(source);
-	if (!source_name) {
-		source_name = "";
+	o.push_back(scene_uuid);
+	auto source_uuid = obs_source_get_name(source);
+	if (!source_uuid) {
+		source_uuid = "";
 	}
-	o.push_back(source_name);
+	o.push_back(source_uuid);
 	o.push_back(id);
-
 	return o;
 }
 
@@ -136,7 +135,9 @@ static std::shared_ptr<obs_sceneitem_t> resolve_sceneitem_reference(nlohmann::js
 
 	// 3. Try and resolve the scene itself.
 	std::shared_ptr<obs_source_t> scene_s =
-		std::shared_ptr<obs_source_t>(obs_get_source_by_name(scene_.c_str()), obs_source_deleter);
+		std::shared_ptr<obs_source_t>(obs_get_source_by_uuid(scene_.c_str()), obs_source_deleter);
+	if (!scene_s)
+		scene_s = std::shared_ptr<obs_source_t>(obs_get_source_by_name(scene_.c_str()), obs_source_deleter);
 	if (!scene_s)
 		throw streamdeck::jsonrpc::internal_error("Failed to find scene.");
 
@@ -158,7 +159,8 @@ static std::shared_ptr<obs_sceneitem_t> resolve_sceneitem_reference(nlohmann::js
 
 	// 6. Verify that the name still matches.
 	const char* name = obs_source_get_name(obs_sceneitem_get_source(item.get()));
-	if (source_ != name) {
+	const char* uuid = obs_source_get_uuid(obs_sceneitem_get_source(item.get()));
+	if (source_ != name && source_ != uuid) {
 		//throw streamdeck::jsonrpc::internal_error("Scene item name differs from parameters, aborting.");
 		//TODO: Turn this into a warning.
 	}
@@ -208,6 +210,7 @@ streamdeck::handlers::obs_scene::~obs_scene()
 	{
 		auto osh = obs_get_signal_handler();
 		signal_handler_disconnect(osh, "source_create", &on_source_create, this);
+		signal_handler_disconnect(osh, "source_create_canvas", &on_source_create, this);
 	}
 }
 
@@ -216,6 +219,7 @@ streamdeck::handlers::obs_scene::obs_scene()
 	{
 		auto osh = obs_get_signal_handler();
 		signal_handler_connect(osh, "source_create", &on_source_create, this);
+		signal_handler_connect(osh, "source_create_canvas", &on_source_create, this);
 	}
 
 	auto server = streamdeck::server::instance();
@@ -437,7 +441,10 @@ void streamdeck::handlers::obs_scene::items(std::shared_ptr<streamdeck::jsonrpc:
 	// 3. Resolve the scene to a source.
 	std::string                   scene_ = p_scene->get<std::string>();
 	std::shared_ptr<obs_source_t> source =
-		std::shared_ptr<obs_source_t>(obs_get_source_by_name(scene_.c_str()), obs_source_deleter);
+		std::shared_ptr<obs_source_t>(obs_get_source_by_uuid(scene_.c_str()), obs_source_deleter);
+	if (!source) {
+		source = std::shared_ptr<obs_source_t>(obs_get_source_by_name(scene_.c_str()), obs_source_deleter);
+	}
 	if (!source) {
 		throw jsonrpc::invalid_params_error("'scene' does not describe an existing source or scene.");
 	}

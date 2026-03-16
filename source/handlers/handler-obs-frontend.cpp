@@ -1251,7 +1251,10 @@ void streamdeck::handlers::obs_frontend::scene(std::weak_ptr<void>              
 						std::string scene_name;
 						key->get_to(scene_name);
 
-						obs_source_t* scene = obs_get_source_by_name(scene_name.c_str());
+						obs_source_t* scene = obs_get_source_by_uuid(scene_name.c_str());
+						if (!scene) {
+							scene = obs_get_source_by_name(scene_name.c_str());
+						}
 						if (!is_program_scene && obs_frontend_preview_program_mode_active()) {
 							obs_frontend_set_current_preview_scene(scene);
 						} else {
@@ -1302,6 +1305,16 @@ void streamdeck::handlers::obs_frontend::scene_list(std::shared_ptr<streamdeck::
 		scenes.push_back(obs_source_get_name(scene));
 	}
 	obs_frontend_source_list_free(&list);
+	obs_enum_canvases([](void* ptr, obs_canvas_t* canvas) {
+			if (obs_canvas_get_flags(canvas) & MAIN) {
+				return true;
+			}
+			obs_canvas_enum_scenes(canvas, [](void* ptr, obs_source_t* scene) {
+					nlohmann::json* scenes = static_cast<nlohmann::json*>(ptr);
+					scenes->push_back(obs_source_get_name(scene));
+				return true; }, ptr);
+		return true;
+		}, &scenes);
 
 	res->set_result(scenes);
 }
@@ -1485,8 +1498,12 @@ void streamdeck::handlers::obs_frontend::screenshot(std::shared_ptr<streamdeck::
 			if (!param->is_string()) {
 				throw jsonrpc::invalid_params_error("The parameter 'source' must be of type 'string' if provided.");
 			} else {
-				source = std::shared_ptr<obs_source_t>(obs_get_source_by_name(param->get<std::string>().c_str()),
+				source = std::shared_ptr<obs_source_t>(obs_get_source_by_uuid(param->get<std::string>().c_str()),
 													   [](obs_source_t* v) { obs_source_release(v); });
+				if (!source) {
+					source = std::shared_ptr<obs_source_t>(obs_get_source_by_name(param->get<std::string>().c_str()),
+														   [](obs_source_t* v) { obs_source_release(v); });
+				}
 			}
 		}
 	}
