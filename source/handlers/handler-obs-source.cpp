@@ -149,8 +149,10 @@ static std::shared_ptr<obs_source> resolve_source_reference(nlohmann::json value
 			}
 		}
 
-		std::shared_ptr<obs_source> ref = {obs_get_source_by_name(value.at(0).get<std::string>().c_str()),
+		std::shared_ptr<obs_source> ref = {obs_get_source_by_uuid(value.at(0).get<std::string>().c_str()),
 										   obs_source_deleter};
+		if (!ref)
+			ref = {obs_get_source_by_name(value.at(0).get<std::string>().c_str()), obs_source_deleter};
 		for (size_t n = 1; n < value.size(); n++) {
 			ref = {obs_source_get_filter_by_name(ref.get(), value.at(n).get<std::string>().c_str()),
 				   obs_source_deleter};
@@ -158,7 +160,11 @@ static std::shared_ptr<obs_source> resolve_source_reference(nlohmann::json value
 
 		return ref;
 	} else if (value.is_string()) {
-		return {obs_get_source_by_name(value.get<std::string>().c_str()), obs_source_deleter};
+		std::shared_ptr<obs_source> ref = {obs_get_source_by_uuid(value.get<std::string>().c_str()),
+										   obs_source_deleter};
+		if (!ref)
+			ref = {obs_get_source_by_name(value.get<std::string>().c_str()), obs_source_deleter};
+		return ref;
 	} else {
 		throw streamdeck::jsonrpc::invalid_params_error("Invalid type for source.");
 	}
@@ -206,11 +212,13 @@ static nlohmann::json build_source_metadata(obs_source_t* source)
 {
 	nlohmann::json res  = nlohmann::json::object();
 	const char*    name = obs_source_get_name(source);
+	const char*    uuid = obs_source_get_uuid(source);
 
 	// The current name of the source.
 	res["id"]             = obs_source_get_id(source);
 	res["id_unversioned"] = obs_source_get_unversioned_id(source);
 	res["name"]           = name ? name : "";
+	res["uuid"]           = uuid ? uuid : "";
 
 	{
 		auto kv = type_map.find(obs_source_get_type(source));
@@ -593,6 +601,7 @@ streamdeck::handlers::obs_source::~obs_source()
 	{
 		auto osh = obs_get_signal_handler();
 		signal_handler_disconnect(osh, "source_create", &on_source_create, this);
+		signal_handler_disconnect(osh, "source_create_canvas", &on_source_create, this);
 	}
 }
 
@@ -601,6 +610,7 @@ streamdeck::handlers::obs_source::obs_source()
 	{
 		auto osh = obs_get_signal_handler();
 		signal_handler_connect(osh, "source_create", &on_source_create, this);
+		signal_handler_connect(osh, "source_create_canvas", &on_source_create, this);
 	}
 
 	auto server = streamdeck::server::instance();
@@ -1116,14 +1126,18 @@ void streamdeck::handlers::obs_source::enumerate(std::shared_ptr<streamdeck::jso
 			return true;
 		},
 		&result);
-	obs_enum_scenes(
-		[](void* ptr, obs_source_t* source) {
-			nlohmann::json* result = static_cast<nlohmann::json*>(ptr);
-			result->push_back(build_source_metadata(source));
-			return true;
-		},
-		&result);
-
+	obs_enum_canvases(
+		[](void* ptr, obs_canvas_t* canvas) {
+			obs_canvas_enum_scenes(
+				canvas,
+				[](void* ptr, obs_source_t* source) {
+					nlohmann::json* result = static_cast<nlohmann::json*>(ptr);
+					result->push_back(build_source_metadata(source));
+					return true;
+				},
+				ptr);
+		return true;
+		}, &result);
 	res->set_result(result);
 }
 
