@@ -392,16 +392,24 @@ void streamdeck::handlers::obs_frontend::handle(enum obs_frontend_event event)
 		#if OBS_MINIMUM_SUPPORT >= 280000
 		case OBS_FRONTEND_EVENT_SCENE_COLLECTION_RENAMED:
 			method = "obs.frontend.event.scenecollection.renamed";
-			reply["from"]            = active_scene_collection;
-			active_scene_collection = obs_frontend_get_current_scene_collection();
-			reply["to"]            = active_scene_collection;
+			reply["from"] = active_scene_collection;
+			{
+				char* name              = obs_frontend_get_current_scene_collection();
+				active_scene_collection = name;
+				reply["to"]             = active_scene_collection;
+				bfree(name);
+			}
 			break;
 		#endif
 
 		case OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED:
-			method                  = "obs.frontend.event.scenecollection";
-			active_scene_collection = obs_frontend_get_current_scene_collection();
-			reply["collection"] = active_scene_collection;
+			method = "obs.frontend.event.scenecollection";
+			{
+				char* name              = obs_frontend_get_current_scene_collection();
+				active_scene_collection = name;
+				reply["collection"]     = active_scene_collection;
+				bfree(name);
+			}
 			break;
 
 		case OBS_FRONTEND_EVENT_SCENE_COLLECTION_LIST_CHANGED:
@@ -1055,8 +1063,9 @@ void streamdeck::handlers::obs_frontend::scenecollection(std::weak_ptr<void>    
 					}
 				}
 
-				const char* col = obs_frontend_get_current_scene_collection();
+				char* col = obs_frontend_get_current_scene_collection();
 				res->set_result(col ? col : "");
+				bfree(col);
 			} catch (streamdeck::jsonrpc::error const& ex) {
 				res->set_error(ex.id(), ex.what() ? ex.what() : "Unknown error.");
 			}
